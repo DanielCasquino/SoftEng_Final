@@ -40,13 +40,13 @@ async def read_root():
 # Creates a user
 @app.post(
     "/user",
-    response_model=User.UserDTO,
+    response_model=User,
     responses={
-        201: {"description": "User created", "model": User.UserDTO},
+        201: {"description": "User created", "model": User},
         400: {"description": "Invalid username"},
     },
 )
-async def create_user(session: SessionDep, user: User) -> User.UserDTO:
+async def create_user(session: SessionDep, user: User) -> User:
     """
     User Registration
 
@@ -66,20 +66,19 @@ async def create_user(session: SessionDep, user: User) -> User.UserDTO:
     session.add(user)
     await session.commit()
     await session.refresh(user)
-    user_dto = User.UserDTO.model_validate(user)
-    return JSONResponse(status_code=201, content=user_dto.model_dump())
+    return JSONResponse(status_code=201, content=user.model_dump())
 
 
-# Retrieves a movie with a given id
+# Retrieves a user with a given id
 @app.get(
-    "/movie/{user_id}",
-    response_model=User.UserDTO,
+    "/user/{user_id}",
+    response_model=User,
     responses={
-        200: {"description": "User found", "model": User.UserDTO},
+        200: {"description": "User found", "model": User},
         404: {"description": "User not found"},
     },
 )
-async def get_user(session: SessionDep, user_id: int) -> User.UserDTO:
+async def get_user(session: SessionDep, user_id: int) -> User:
     """
     User Get
 
@@ -89,7 +88,7 @@ async def get_user(session: SessionDep, user_id: int) -> User.UserDTO:
         user_id (int): The id of the user to retrieve
 
     Returns:
-        user (object): A DTO of the user with the desired id
+        user (object): The user with the desired id
 
     Raises:
         404: If the user is not found
@@ -97,36 +96,33 @@ async def get_user(session: SessionDep, user_id: int) -> User.UserDTO:
     user = await session.get(User, user_id)
     if user is None:
         return JSONResponse(status_code=404, content={"message": "User not found"})
-    user_dto = User.UserDTO.model_validate(user)
-    return JSONResponse(status_code=200, content=user_dto.model_dump())
+    return JSONResponse(status_code=200, content=user.model_dump())
 
 
 @app.get(
     "/user",
-    response_model=list[User.UserDTO],
+    response_model=list[User],
     responses={
-        200: {"description": "Users found", "model": list[User.UserDTO]},
+        200: {"description": "Users found", "model": list[User]},
     },
 )
 async def get_all_users(
     session: SessionDep,
     offset: int = 0,
     limit: Annotated[int, Query(le=100)] = 100,
-) -> list[User.UserDTO]:
+) -> list[User]:
     """
     User Get All
 
     Retrieves all users from the database.
 
     Returns:
-        users (list): A list of DTOs of all users
+        users (list): A list of all users
 
     """
-    users = await session.exec(select(User).offset(offset).limit(limit))
-    user_dtos = [User.UserDTO.model_validate(user) for user in users]
-    return JSONResponse(
-        status_code=200, content=[user_dto.model_dump() for user_dto in user_dtos]
-    )
+    users = await session.execute(select(User).offset(offset).limit(limit))
+    users = users.scalars().all()
+    return JSONResponse(status_code=200, content=[user.model_dump() for user in users])
 
 
 @app.post(
@@ -211,6 +207,7 @@ async def get_all_events(
 
     """
     events = await session.execute(select(Event).offset(offset).limit(limit))
+    events = events.scalars().all()
     return JSONResponse(
         status_code=200, content=[event.model_dump() for event in events]
     )
@@ -289,13 +286,14 @@ async def buy_ticket(session: SessionDep, user_id: int, event_id: int) -> Ticket
     Raises:
         400: If the ticket is invalid
     """
-    if not await session.get(User, user_id) or not await session.get(Event, event_id):
-        return JSONResponse(
-            status_code=404, content={"message": "Invalid user or event"}
-        )
+    user = await session.get(User, user_id)
+    event = await session.get(Event, event_id)
 
-    ticket = Ticket(user_id=user_id, event_id=event_id)
-    ticket.status = TicketStatus.PURCHASED
+    if user is None or event is None:
+        return JSONResponse(
+            status_code=404, content={"message": "User or event not found"}
+        )
+    ticket = Ticket(user_id=user_id, event_id=event_id, status=TicketStatus.PURCHASED)
     session.add(ticket)
     await session.commit()
     await session.refresh(ticket)
@@ -310,7 +308,7 @@ async def buy_ticket(session: SessionDep, user_id: int, event_id: int) -> Ticket
         404: {"description": "User or event not found"},
     },
 )
-async def reserve_ticket(session: SessionDep, user_id: int, event_id) -> Ticket:
+async def reserve_ticket(session: SessionDep, user_id: int, event_id: int) -> Ticket:
     """
     Ticket Reservation
 
@@ -325,14 +323,16 @@ async def reserve_ticket(session: SessionDep, user_id: int, event_id) -> Ticket:
     Raises:
         404: If the ticket is not found
     """
-    if not await session.get(User, user_id) or not await session.get(Event, event_id):
+    user = await session.get(User, user_id)
+    event = await session.get(Event, event_id)
+
+    if user is None or event is None:
         return JSONResponse(
-            status_code=404, content={"message": "Invalid user or event"}
+            status_code=404, content={"message": "User or event not found"}
         )
 
-    ticket = Ticket(user_id=user_id, event_id=event_id)
+    ticket = Ticket(user_id=user_id, event_id=event_id, status=TicketStatus.RESERVED)
 
-    ticket.status = TicketStatus.RESERVED
     session.add(ticket)
     await session.commit()
     await session.refresh(ticket)

@@ -1,5 +1,5 @@
 from typing import Optional
-from pydantic import ConfigDict
+from pydantic import ConfigDict, BaseModel
 from sqlmodel import Field, SQLModel
 from enum import Enum
 
@@ -22,10 +22,6 @@ class User(SQLModel, table=True):
     id: Optional[int] = Field(default=None, primary_key=True, index=True)
     username: str = Field(index=True)
     password: str = Field()
-
-    class UserDTO(SQLModel):
-        id: Optional[int]
-        username: str
 
 
 class Event(SQLModel, table=True):
