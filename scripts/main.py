@@ -1,17 +1,37 @@
 from contextlib import asynccontextmanager
 from typing import Annotated
 
-from fastapi import FastAPI, Query
+from fastapi import FastAPI, Query, Request
 from fastapi.responses import JSONResponse
 from sqlmodel import select
 
 from scripts.model import User, Event, Ticket, TicketStatus
 from scripts.database import create_db_and_tables, SessionDep
-
+import os
 import logging
+from datetime import datetime
 
-logger = logging.getLogger("uvicorn.error")
-logger.setLevel(logging.DEBUG)
+
+logs_dir = "logs"
+os.makedirs(logs_dir, exist_ok=True)
+
+log_format = '%(asctime)s - %(name)s - %(levelname)s - %(message)s'
+
+def setup_logger():
+    log_filename = os.path.join(logs_dir, f"log_{datetime.now().strftime('%d_%m_%Y')}.log")
+
+    logging.basicConfig(
+        level=logging.INFO,
+        format=log_format,
+        handlers=[
+            logging.FileHandler(log_filename, encoding='utf-8'),
+            logging.StreamHandler()
+        ]
+    )
+    return logging.getLogger(__name__)
+
+logger = setup_logger()
+
 
 
 @asynccontextmanager
@@ -23,7 +43,40 @@ async def lifespan(app: FastAPI):
 app = FastAPI(lifespan=lifespan)
 
 
+
+@app.middleware("http")
+async def log_requests(request: Request, call_next):
+    logger.info(f"Method: {request.method}, URL: {request.url}, IP: {request.client.host}")
+
+    response = await call_next(request)
+
+    logger.info(f"State: {response.status_code}")
+
+    return response
 # sanity check
+
+
+@app.get("/count_logs")
+async def count_logs():
+    logs_files = os.listdir(logs_dir)
+
+
+    positive_count = 0
+    negative_count = 0
+
+    for log_file in logs_files:
+        logs = []
+        with open(os.path.join(logs_dir, log_file), 'r') as f:
+            logs.extend(f.readlines())
+
+        for log in logs:
+
+            if "Execution successful" in log:
+                positive_count += 1
+            elif "Execution failed" in log:
+                negative_count += 1
+    return {"successes": positive_count, "fails": negative_count}
+
 @app.get("/", responses={200: {"description": "Ticket API is working"}})
 async def read_root():
     """
@@ -61,12 +114,18 @@ async def create_user(session: SessionDep, user: User) -> User:
     Raises:
         400: If the username is invalid
     """
-    if not user.username:
-        return JSONResponse(status_code=400, content={"message": "Invalid username"})
-    session.add(user)
-    await session.commit()
-    await session.refresh(user)
-    return JSONResponse(status_code=201, content=user.model_dump())
+    try:
+        if not user.username:
+            return JSONResponse(status_code=400, content={"message": "Invalid username"})
+        session.add(user)
+        await session.commit()
+        await session.refresh(user)
+        logger.info("Execution successful")
+        return JSONResponse(status_code=201, content=user.model_dump())
+    except Exception as e:
+        logger.error(f"Error creating user: {str(e)}", exc_info=True)
+        logger.error("Execution failed")
+        return JSONResponse(status_code=500, content={"message": "Internal server error"})
 
 
 # Retrieves a user with a given id
