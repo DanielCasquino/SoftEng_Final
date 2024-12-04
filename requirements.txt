@@ -1,0 +1,8 @@
+fastapi[standard]
+sqlmodel
+coverage
+# psycopg2
+asyncpg
+pytest
+pytest-asyncio
+httpx

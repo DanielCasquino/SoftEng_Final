@@ -1,0 +1,1 @@
+FastAPI crea la base de datos de forma automática, y se basa en los modelos definidos en model.py
