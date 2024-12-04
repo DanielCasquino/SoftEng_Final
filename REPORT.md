@@ -5,7 +5,7 @@ Group: Sofwer (Diego Quispe, Daniel Casquino)
 1. Database is created automatically with fastapi. Models can be found at model.py
 
 
-2. Integration test
+2. Integration test: :(
 
 
 3. Complete api code can be found at main.py
@@ -16,7 +16,7 @@ Group: Sofwer (Diego Quispe, Daniel Casquino)
 ![coverage](./coverage.png)
 
 
-5. Happy Path endpoint < 1000ms
+5. Happy Path endpoint < 1000ms The latency graph shows that, when not under inmense stress, the create user endpoint has less that 1000ms latency :)
 
 
 6. 400 and 500 are documented, can be accessed via localhost:8000/redoc (swagger), can also be read in the pdf
