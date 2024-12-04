@@ -87,7 +87,7 @@ async def read_root():
     Returns:
         dict: A message indicating the API status
     """
-    return JSONResponse(status_code=200, content={"message": "Ticket API is working!"})
+    return JSONResponse(status_code=200, content={"message": "Working"})
 
 
 # Creates a user
@@ -363,7 +363,7 @@ async def buy_ticket(session: SessionDep, user_id: int, event_id: int) -> Ticket
     "/ticket/reserve/{user_id}/{event_id}",
     response_model=Ticket,
     responses={
-        200: {"description": "Ticket reserved", "model": Ticket},
+        201: {"description": "Ticket reserved", "model": Ticket},
         404: {"description": "User or event not found"},
     },
 )
@@ -395,7 +395,7 @@ async def reserve_ticket(session: SessionDep, user_id: int, event_id: int) -> Ti
     session.add(ticket)
     await session.commit()
     await session.refresh(ticket)
-    return JSONResponse(status_code=200, content=ticket.model_dump())
+    return JSONResponse(status_code=201, content=ticket.model_dump())
 
 
 @app.patch(

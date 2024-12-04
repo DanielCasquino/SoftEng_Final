@@ -14,7 +14,7 @@ def client():
 def test_get_root(client):
     response = client.get("/")
     assert response.status_code == 200
-    assert response.json() == {"message": "Ticket API is working :DDD"}
+    assert response.json() == {"message": "Working"}
 
 
 def test_get_user(client):
@@ -26,7 +26,7 @@ def test_get_user(client):
     get_response = client.get(f"/user/{user_id}")
 
     assert get_response.status_code == 200
-    assert get_response.json()["name"] == "Panchito"
+    assert get_response.json()["username"] == "Panchito"
     # we are testing for correct retrieval after creation
 
 
@@ -34,14 +34,14 @@ def test_get_all_user(client):
     get_response = client.get("/user")
     for user in get_response.json():
         assert isinstance(user["id"], int)
-        assert isinstance(user["name"], str)
+        assert isinstance(user["username"], str)
 
 
 def test_create_user(client):
     user_data = {"username": "Pepito", "password": "1234"}
     response = client.post("/user", json=user_data)
     assert response.status_code == 201
-    assert response.json()["name"] == "Pepito"
+    assert response.json()["username"] == "Pepito"
 
     bad_user_data = {
         "username": "",
@@ -96,18 +96,107 @@ def test_create_event(client):
     assert create_response.status_code == 400
 
 
-def test_delete_event(client):
+def test_buy_ticket(client):
+    user_data = {"username": "Pepito", "password": "1234"}
+    user_response = client.post("/user", json=user_data)
+    user_id = user_response.json()["id"]
+
     event_data = {
-        "name": "TEST_DELETE_EVENT",
+        "name": "TEST_BUY_TICKET",
         "price": 100,
     }
-    create_response = client.post("/event", json=event_data)
-    event_id = create_response.json()["id"]
+    event_response = client.post("/event", json=event_data)
+    event_id = event_response.json()["id"]
 
-    delete_response = client.delete(f"/movie/{event_id}")
-    assert delete_response.status_code == 200
-    assert delete_response.json()["name"] == "TEST_DELETE_EVENT"
+    ticket_buy_response = client.post(f"/ticket/buy/{user_id}/{event_id}")
+    assert ticket_buy_response.status_code == 201
+    assert ticket_buy_response.json()["user_id"] == user_id
+    assert ticket_buy_response.json()["event_id"] == event_id
 
-    # event ids start from 1
-    delete_response = client.delete(f"/movie/{0}")
-    assert delete_response.status_code == 404
+    ticket_buy_response = client.post(f"/ticket/buy/{0}/{0}")
+    assert ticket_buy_response.status_code == 404
+
+
+def test_reserve_ticket(client):
+    user_data = {"username": "Pepito", "password": "1234"}
+    user_response = client.post("/user", json=user_data)
+    user_id = user_response.json()["id"]
+
+    event_data = {
+        "name": "TEST_RESERVE_TICKET",
+        "price": 100,
+    }
+    event_response = client.post("/event", json=event_data)
+    event_id = event_response.json()["id"]
+
+    ticket_reserve_response = client.post(f"/ticket/reserve/{user_id}/{event_id}")
+    assert ticket_reserve_response.status_code == 201
+
+    ticket_reserve_response = client.post(f"/ticket/reserve/{0}/{0}")
+    assert ticket_reserve_response.status_code == 404
+
+
+def test_pay_ticket(client):
+    user_data = {"username": "Pepito", "password": "1234"}
+    user_response = client.post("/user", json=user_data)
+    user_id = user_response.json()["id"]
+
+    event_data = {
+        "name": "TEST_TICKET_PAY",
+        "price": 100,
+    }
+    event_response = client.post("/event", json=event_data)
+    event_id = event_response.json()["id"]
+
+    ticket_reserve_response = client.post(f"/ticket/reserve/{user_id}/{event_id}")
+    ticket_id = ticket_reserve_response.json()["id"]
+
+    ticket_pay_response = client.patch(f"/ticket/pay/{ticket_id}")
+    assert ticket_pay_response.status_code == 200
+
+    ticket_pay_response = client.patch(f"/ticket/pay/{0}")
+    assert ticket_pay_response.status_code == 404
+
+    ticket_pay_response = client.patch(f"/ticket/pay/{ticket_id}")
+    assert ticket_pay_response.status_code == 400  # cause already paid
+
+
+def test_cancel_ticket(client):
+    user_data = {"username": "Pepito", "password": "1234"}
+    user_response = client.post("/user", json=user_data)
+    user_id = user_response.json()["id"]
+
+    event_data = {
+        "name": "TEST_TICKET_CANCEL",
+        "price": 100,
+    }
+    event_response = client.post("/event", json=event_data)
+    event_id = event_response.json()["id"]
+
+    test_ticket_cancel_response = client.post(f"/ticket/reserve/{user_id}/{event_id}")
+    ticket_id = test_ticket_cancel_response.json()["id"]
+
+    ticket_cancel_response = client.patch(f"/ticket/cancel/{ticket_id}")
+    assert ticket_cancel_response.status_code == 200
+
+
+def test_use_ticket(client):
+    user_data = {"username": "Pepito", "password": "1234"}
+    user_response = client.post("/user", json=user_data)
+    user_id = user_response.json()["id"]
+
+    event_data = {
+        "name": "TEST_TICKET_USE",
+        "price": 100,
+    }
+    event_response = client.post("/event", json=event_data)
+    event_id = event_response.json()["id"]
+
+    test_ticket_use_response = client.post(f"/ticket/buy/{user_id}/{event_id}")
+    ticket_id = test_ticket_use_response.json()["id"]
+
+    ticket_use_response = client.patch(f"/ticket/use/{ticket_id}")
+    assert ticket_use_response.status_code == 200
+
+    ticket_use_response = client.patch(f"/ticket/use/{ticket_id}")
+    assert ticket_use_response.status_code == 400  # cause already used
