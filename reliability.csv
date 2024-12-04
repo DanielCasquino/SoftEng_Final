@@ -1,0 +1,3 @@
+Label,# Samples,Average,Min,Max,Std. Dev.,Error %,Throughput,Received KB/sec,Sent KB/sec,Avg. Bytes
+Create Movie,20000,3,2,131,2.95,0.000%,239.02573,44.22,53.69,189.5
+TOTAL,20000,3,2,131,2.95,0.000%,239.02573,44.22,53.69,189.5
